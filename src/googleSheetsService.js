@@ -251,14 +251,7 @@ export const GoogleSheetsService = {
 
 // Default assets if Google Sheets not available
 const getDefaultAssets = () => [
-  { id: 'A001', name: 'Projektor LCD', category: 'Elektronik', total: 5, available: 5 },
-  { id: 'A002', name: 'Laptop Dell', category: 'Elektronik', total: 10, available: 10 },
-  { id: 'A003', name: 'Kamera DSLR', category: 'Elektronik', total: 3, available: 3 },
-  { id: 'A004', name: 'Tripod', category: 'Peralatan', total: 8, available: 8 },
-  { id: 'A005', name: 'Mikropon Wireless', category: 'Audio', total: 6, available: 6 },
-  { id: 'A006', name: 'Speaker Portable', category: 'Audio', total: 4, available: 4 },
-  { id: 'A007', name: 'Whiteboard Portable', category: 'Peralatan', total: 3, available: 3 },
-  { id: 'A008', name: 'Extension Cable 10m', category: 'Peralatan', total: 15, available: 15 },
+  { id: 'A001', name: 'TBC', category: 'None', total: 1, available: 1 },
 ];
 
 // Export configuration for use in other files
