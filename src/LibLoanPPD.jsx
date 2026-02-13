@@ -31,6 +31,7 @@ import {
   Archive
 } from 'lucide-react';
 import { EmailService, isEmailConfigured, calculateDaysUntilReturn } from './emailService';
+import { GoogleSheetsService } from './googleSheetsService';
 
 const LibLoanPPD = () => {
   // ==================== STATE MANAGEMENT ====================
@@ -40,6 +41,10 @@ const LibLoanPPD = () => {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
+
+  // Sync State
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(null);
 
   // Asset Inventory
   const [assets, setAssets] = useState([
@@ -98,6 +103,79 @@ const LibLoanPPD = () => {
       setIsAdminLoggedIn(true);
     }
   }, []);
+
+  // ==================== GOOGLE SHEETS SYNC ====================
+
+  // Sync data from Google Sheets on component mount
+  useEffect(() => {
+    const syncData = async () => {
+      if (GoogleSheetsService.isConfigured()) {
+        console.log('🔄 Syncing data from Google Sheets...');
+        setIsSyncing(true);
+        
+        try {
+          const result = await GoogleSheetsService.syncData();
+          
+          if (result.success) {
+            console.log('✅ Data synced successfully!');
+            console.log('Applications:', result.applications.length);
+            console.log('Assets:', result.assets.length);
+            
+            if (result.applications.length > 0) {
+              setApplications(result.applications);
+            }
+            if (result.assets.length > 0) {
+              setAssets(result.assets);
+            }
+            
+            setLastSyncTime(new Date());
+            showNotificationMessage('Data synced from Google Sheets', 'success');
+          } else {
+            console.log('⚠️ Sync failed, using localStorage');
+            showNotificationMessage('Using offline data', 'info');
+          }
+        } catch (error) {
+          console.error('Error syncing:', error);
+          showNotificationMessage('Using offline data', 'info');
+        } finally {
+          setIsSyncing(false);
+        }
+      } else {
+        console.log('ℹ️ Google Sheets not configured, using localStorage only');
+      }
+    };
+
+    syncData();
+  }, []); // Run once on mount
+
+  // Manual sync function
+  const handleManualSync = async () => {
+    if (!GoogleSheetsService.isConfigured()) {
+      showNotificationMessage('Google Sheets not configured', 'warning');
+      return;
+    }
+
+    setIsSyncing(true);
+    showNotificationMessage('Syncing data...', 'info');
+    
+    try {
+      const result = await GoogleSheetsService.syncData();
+      
+      if (result.success) {
+        setApplications(result.applications);
+        setAssets(result.assets);
+        setLastSyncTime(new Date());
+        showNotificationMessage('Data synced successfully!', 'success');
+      } else {
+        showNotificationMessage('Sync failed', 'error');
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      showNotificationMessage('Sync error: ' + error.message, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Save applications to localStorage whenever they change
   useEffect(() => {
@@ -290,6 +368,18 @@ const LibLoanPPD = () => {
       returnHistory: []
     };
 
+    // Save to Google Sheets
+    if (GoogleSheetsService.isConfigured()) {
+      try {
+        await GoogleSheetsService.saveApplication(newApplication);
+        console.log('✅ Application saved to Google Sheets');
+      } catch (error) {
+        console.error('Error saving to Google Sheets:', error);
+        showNotificationMessage('Application saved locally only', 'warning');
+      }
+    }
+
+    // Update local state
     setApplications([...applications, newApplication]);
     
     showNotificationMessage(
@@ -340,15 +430,28 @@ const LibLoanPPD = () => {
     });
     setAssets(updatedAssets);
 
-    // Update application
+    // Prepare update data
+    const updates = {
+      status: 'approved',
+      approvedDate: new Date().toISOString(),
+      approvedBy: 'Admin'
+    };
+
+    // Update Google Sheets
+    if (GoogleSheetsService.isConfigured()) {
+      try {
+        await GoogleSheetsService.updateApplication(applicationId, updates);
+        await GoogleSheetsService.updateAssets(updatedAssets);
+        console.log('✅ Updated Google Sheets');
+      } catch (error) {
+        console.error('Error updating Google Sheets:', error);
+      }
+    }
+
+    // Update local state
     const updatedApplications = applications.map(a => {
       if (a.id === applicationId) {
-        return {
-          ...a,
-          status: 'approved',
-          approvedDate: new Date().toISOString(),
-          approvedBy: 'Admin'
-        };
+        return { ...a, ...updates };
       }
       return a;
     });
@@ -383,11 +486,21 @@ const LibLoanPPD = () => {
       return app;
     });
     setApplications(updatedApplications);
+    
+    // Update Google Sheets
+    if (GoogleSheetsService.isConfigured()) {
+      GoogleSheetsService.updateApplication(applicationId, {
+        status: 'rejected',
+        rejectedDate: new Date().toISOString(),
+        rejectedReason: reason
+      }).catch(err => console.error('Error updating Google Sheets:', err));
+    }
+    
     showNotificationMessage('Permohonan ditolak', 'info');
     setSelectedApplication(null);
   };
 
-  const processReturn = (applicationId, returnedItems) => {
+  const processReturn = async (applicationId, returnedItems) => {
     const app = applications.find(a => a.id === applicationId);
     if (!app) return;
 
@@ -420,21 +533,47 @@ const LibLoanPPD = () => {
     });
     setAssets(updatedAssets);
 
-    // Update application
+    // Prepare return record
+    const returnRecord = {
+      applicationId: applicationId,
+      borrowerName: app.borrowerName,
+      items: returnedItems,
+      processedBy: 'Admin',
+      notes: fullyReturned ? 'Full return' : 'Partial return'
+    };
+
+    // Update Google Sheets
+    if (GoogleSheetsService.isConfigured()) {
+      try {
+        await GoogleSheetsService.updateApplication(applicationId, {
+          items: updatedItems,
+          fullyReturned: fullyReturned,
+          returnHistory: [...app.returnHistory, {
+            date: new Date().toISOString(),
+            items: returnedItems,
+            processedBy: 'Admin'
+          }]
+        });
+        await GoogleSheetsService.updateAssets(updatedAssets);
+        await GoogleSheetsService.saveReturn(returnRecord);
+        console.log('✅ Return recorded in Google Sheets');
+      } catch (error) {
+        console.error('Error saving return to Google Sheets:', error);
+      }
+    }
+
+    // Update local state
     const updatedApplications = applications.map(a => {
       if (a.id === applicationId) {
         return {
           ...a,
           items: updatedItems,
           fullyReturned: fullyReturned,
-          returnHistory: [
-            ...a.returnHistory,
-            {
-              date: new Date().toISOString(),
-              items: returnedItems,
-              processedBy: 'Admin'
-            }
-          ]
+          returnHistory: [...a.returnHistory, {
+            date: new Date().toISOString(),
+            items: returnedItems,
+            processedBy: 'Admin'
+          }]
         };
       }
       return a;
@@ -640,6 +779,20 @@ const LibLoanPPD = () => {
                 >
                   Dashboard Admin
                 </button>
+                
+                {/* Sync Button */}
+                {GoogleSheetsService.isConfigured() && (
+                  <button
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={lastSyncTime ? `Last sync: ${lastSyncTime.toLocaleTimeString()}` : 'Sync with Google Sheets'}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                    {isSyncing ? 'Syncing...' : 'Sync'}
+                  </button>
+                )}
+                
                 <button
                   onClick={handleAdminLogout}
                   className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 transition-colors flex items-center gap-2"
@@ -651,6 +804,14 @@ const LibLoanPPD = () => {
             )}
           </nav>
         </div>
+        
+        {/* Sync Status Indicator */}
+        {GoogleSheetsService.isConfigured() && lastSyncTime && (
+          <div className="mt-2 text-xs text-blue-200">
+            Last synced: {lastSyncTime.toLocaleTimeString()} | 
+            <span className="ml-1">Google Sheets Connected ✓</span>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -1227,8 +1388,27 @@ const LibLoanPPD = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Admin Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white mb-8 shadow-xl">
-          <h2 className="text-3xl font-bold mb-2">Dashboard Admin</h2>
-          <p className="text-blue-100">Pengurusan permohonan dan aset perpustakaan</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-bold mb-2">Dashboard Admin</h2>
+              <p className="text-blue-100">Pengurusan permohonan dan aset perpustakaan</p>
+            </div>
+            
+            {/* Google Sheets Status */}
+            {GoogleSheetsService.isConfigured() && (
+              <div className="text-right">
+                <div className="flex items-center gap-2 text-green-200 mb-1">
+                  <CheckCircle className="w-5 h-5" />
+                  <span className="text-sm">Google Sheets Connected</span>
+                </div>
+                {lastSyncTime && (
+                  <p className="text-xs text-blue-200">
+                    Last sync: {lastSyncTime.toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Quick Stats */}
@@ -1597,6 +1777,11 @@ const LibLoanPPD = () => {
                 Sistem Peminjaman Aset Perpustakaan<br />
                 Politeknik Port Dickson
               </p>
+              {GoogleSheetsService.isConfigured() && (
+                <p className="text-xs text-green-400 mt-2">
+                  ✓ Powered by Google Sheets
+                </p>
+              )}
             </div>
             <div>
               <h3 className="text-lg font-bold mb-4">Hubungi Kami</h3>
@@ -1618,14 +1803,14 @@ const LibLoanPPD = () => {
             <div>
               <h3 className="text-lg font-bold mb-4">Waktu Operasi</h3>
               <div className="space-y-2 text-sm text-gray-400">
-                <p>Isnin - Khamis: 8:00 AM - 5:00 PM</p>
-                <p>Jumaat: 8:00 AM - 12:00 PM, 2:00 PM - 5:00 PM</p>
+                <p>Isnin - Khamis: 8:00 AM - 4:30 PM</p>
+                <p>Jumaat: 8:00 AM - 12:15 PM, 2:45 PM - 4:30 PM</p>
                 <p>Hujung Minggu: Tutup</p>
               </div>
             </div>
           </div>
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2024 Perpustakaan Politeknik Port Dickson. All rights reserved.</p>
+            <p>&copy; 2026 Perpustakaan Politeknik Port Dickson. All rights reserved.</p>
           </div>
         </div>
       </footer>
