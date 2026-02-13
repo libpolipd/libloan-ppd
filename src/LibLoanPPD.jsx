@@ -1,1634 +1,1648 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BookOpen, 
-  Calendar, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  User, 
-  Mail, 
-  Phone, 
-  Building2,
-  Package,
-  ArrowLeft,
-  LogIn,
-  LogOut,
-  Search,
-  Filter,
-  Download,
-  Upload,
-  AlertCircle,
-  Edit,
-  Trash2,
-  Eye,
-  Send,
-  RefreshCw,
-  CheckSquare,
-  Square,
-  Bell,
-  FileText,
-  TrendingUp,
-  Archive
-} from 'lucide-react';
+import { Home, Search, Shield, Plus, Edit2, Check, X, ArrowLeft, Upload, Eye, Calendar, Mail, Phone, User, Building2, FileText, Package, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { EmailService, isEmailConfigured, calculateDaysUntilReturn } from './emailService';
 
+// Komponen Utama
 const LibLoanPPD = () => {
-  // ==================== STATE MANAGEMENT ====================
-  
-  // Navigation & Auth
-  const [currentView, setCurrentView] = useState('home'); // home, application, status, admin
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [page, setPage] = useState('landing');
+  const [adminAuth, setAdminAuth] = useState(false);
+  const [adminTab, setAdminTab] = useState('applications');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Asset Inventory
+  // Data States
   const [assets, setAssets] = useState([
-    { id: 'A001', name: 'Projektor LCD', category: 'Elektronik', total: 5, available: 5 },
-    { id: 'A002', name: 'Laptop Dell', category: 'Elektronik', total: 10, available: 10 },
-    { id: 'A003', name: 'Kamera DSLR', category: 'Elektronik', total: 3, available: 3 },
-    { id: 'A004', name: 'Tripod', category: 'Peralatan', total: 8, available: 8 },
-    { id: 'A005', name: 'Mikropon Wireless', category: 'Audio', total: 6, available: 6 },
-    { id: 'A006', name: 'Speaker Portable', category: 'Audio', total: 4, available: 4 },
-    { id: 'A007', name: 'Whiteboard Portable', category: 'Peralatan', total: 3, available: 3 },
-    { id: 'A008', name: 'Extension Cable 10m', category: 'Peralatan', total: 15, available: 15 },
+    { id: 1, name: 'Meja banquet', quantity: 20, available: 20, active: true, image: '', notes: '', category: 'Meja' },
+    { id: 2, name: 'Kerusi banquet (tiada armrest) – kuning', quantity: 42, available: 42, active: true, image: '', notes: '', category: 'Kerusi' },
+    { id: 3, name: 'Kerusi banquet (armrest) – kuning', quantity: 24, available: 24, active: true, image: '', notes: '', category: 'Kerusi' },
+    { id: 4, name: 'Kerusi banquet (tiada armrest) – biru', quantity: 40, available: 40, active: true, image: '', notes: '', category: 'Kerusi' },
+    { id: 5, name: 'Kerusi VVIP', quantity: 5, available: 5, active: true, image: '', notes: '', category: 'Kerusi' },
+    { id: 6, name: 'Kerusi VIP', quantity: 8, available: 8, active: true, image: '', notes: '', category: 'Kerusi' },
+    { id: 7, name: 'Kerusi Undang (paling besar)', quantity: 2, available: 2, active: true, image: '', notes: '', category: 'Kerusi' },
+    { id: 8, name: 'Meja bulat', quantity: 4, available: 4, active: true, image: '', notes: '', category: 'Meja' },
+    { id: 9, name: 'Coffee table (side table)', quantity: 3, available: 3, active: true, image: '', notes: '', category: 'Meja' },
+    { id: 10, name: 'Meja console', quantity: 2, available: 2, active: true, image: '', notes: '', category: 'Meja' },
+    { id: 11, name: 'Karpet merah', quantity: 3, available: 3, active: true, image: '', notes: '', category: 'Karpet & Alas' },
+    { id: 12, name: 'Karpet nipis', quantity: 1, available: 1, active: true, image: '', notes: '', category: 'Karpet & Alas' },
+    { id: 13, name: 'Dulang', quantity: 1, available: 1, active: true, image: '', notes: '', category: 'Peralatan' },
+    { id: 14, name: 'Alas meja plastik (hijau/kuning)', quantity: 8, available: 8, active: true, image: '', notes: '', category: 'Karpet & Alas' },
+    { id: 15, name: 'Alas meja kain (biru muda)', quantity: 2, available: 2, active: true, image: '', notes: '', category: 'Karpet & Alas' },
+    { id: 16, name: 'Alas meja kain (biru tua)', quantity: 4, available: 4, active: true, image: '', notes: '', category: 'Karpet & Alas' },
+    { id: 17, name: 'Alas dulang (panjang & pendek)', quantity: 2, available: 2, active: true, image: '', notes: '', category: 'Karpet & Alas' },
+    { id: 18, name: 'Partition besar', quantity: 10, available: 10, active: true, image: '', notes: '', category: 'Partition' },
+    { id: 19, name: 'Partition merah', quantity: 16, available: 16, active: true, image: '', notes: '', category: 'Partition' },
+    { id: 20, name: 'Partition biru', quantity: 2, available: 2, active: true, image: '', notes: '', category: 'Partition' },
   ]);
 
-  // Applications
   const [applications, setApplications] = useState([]);
-  const [selectedApplication, setSelectedApplication] = useState(null);
+  const [returns, setReturns] = useState([]);
 
   // Form States
-  const [borrowerForm, setBorrowerForm] = useState({
+  const [loanForm, setLoanForm] = useState({
     borrowerName: '',
-    staffId: '',
+    department: '',
     email: '',
     phone: '',
-    department: '',
     purpose: '',
     loanDate: '',
     returnDate: '',
-    selectedItems: []
+    items: []
   });
 
-  // Search & Filter
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // all, pending, approved, rejected, returned
-  const [dateFilter, setDateFilter] = useState('all'); // all, today, week, month
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [newAsset, setNewAsset] = useState({ name: '', quantity: 1, category: 'Meja', notes: '' });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [editImageAssetId, setEditImageAssetId] = useState(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [signaturePad, setSignaturePad] = useState({});
 
-  // UI States
-  const [showNotification, setShowNotification] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState('');
-  const [notificationType, setNotificationType] = useState('success'); // success, error, warning, info
-
-  // ==================== EFFECTS ====================
-
-  // Load data from localStorage on mount
+  // Load data from localStorage
   useEffect(() => {
-    const savedApplications = localStorage.getItem('libloan_applications');
-    const savedAssets = localStorage.getItem('libloan_assets');
-    const savedAdminSession = localStorage.getItem('libloan_admin_session');
-
-    if (savedApplications) {
-      setApplications(JSON.parse(savedApplications));
-    }
-    if (savedAssets) {
-      setAssets(JSON.parse(savedAssets));
-    }
-    if (savedAdminSession === 'true') {
-      setIsAdminLoggedIn(true);
-    }
+    const savedApplications = localStorage.getItem('applications');
+    const savedReturns = localStorage.getItem('returns');
+    const savedAssets = localStorage.getItem('assets');
+    
+    if (savedApplications) setApplications(JSON.parse(savedApplications));
+    if (savedReturns) setReturns(JSON.parse(savedReturns));
+    if (savedAssets) setAssets(JSON.parse(savedAssets));
   }, []);
 
-  // Save applications to localStorage whenever they change
+  // Save to localStorage whenever data changes
   useEffect(() => {
-    if (applications.length > 0) {
-      localStorage.setItem('libloan_applications', JSON.stringify(applications));
-    }
+    localStorage.setItem('applications', JSON.stringify(applications));
   }, [applications]);
 
-  // Save assets to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('libloan_assets', JSON.stringify(assets));
+    localStorage.setItem('returns', JSON.stringify(returns));
+  }, [returns]);
+
+  useEffect(() => {
+    localStorage.setItem('assets', JSON.stringify(assets));
   }, [assets]);
 
-  // Check for reminders daily
-  useEffect(() => {
-    const checkReminders = () => {
-      const today = new Date().toDateString();
-      const lastCheck = localStorage.getItem('libloan_last_reminder_check');
-      
-      if (lastCheck !== today) {
-        sendDailyReminders();
-        localStorage.setItem('libloan_last_reminder_check', today);
-      }
-    };
-
-    checkReminders();
-    // Check every hour
-    const interval = setInterval(checkReminders, 3600000);
-    return () => clearInterval(interval);
-  }, [applications]);
-
-  // ==================== UTILITY FUNCTIONS ====================
-
-  const generateApplicationId = () => {
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `LIB${year}${month}${random}`;
+  // Helper Functions
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
   };
 
-  const showNotificationMessage = (message, type = 'success') => {
-    setNotificationMessage(message);
-    setNotificationType(type);
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 5000);
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const options = { day: 'numeric', month: 'short', year: 'numeric' };
+    return date.toLocaleDateString('ms-MY', options);
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ms-MY', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
+  const generateId = () => {
+    return 'APP' + Date.now() + Math.random().toString(36).substr(2, 5).toUpperCase();
+  };
+
+  // Signature Pad Functions
+  const startDrawing = (canvasId, e) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    setIsDrawing(true);
+    setSignaturePad({
+      ...signaturePad,
+      [canvasId]: { x, y }
     });
   };
 
-  const validateForm = () => {
-    const { borrowerName, staffId, email, phone, department, purpose, loanDate, returnDate, selectedItems } = borrowerForm;
+  const draw = (canvasId, e) => {
+    if (!isDrawing) return;
     
-    if (!borrowerName || !staffId || !email || !phone || !department || !purpose) {
-      showNotificationMessage('Sila lengkapkan semua maklumat peminjam', 'error');
-      return false;
-    }
-
-    if (!loanDate || !returnDate) {
-      showNotificationMessage('Sila pilih tarikh peminjaman dan pemulangan', 'error');
-      return false;
-    }
-
-    if (new Date(returnDate) <= new Date(loanDate)) {
-      showNotificationMessage('Tarikh pemulangan mesti selepas tarikh peminjaman', 'error');
-      return false;
-    }
-
-    if (selectedItems.length === 0) {
-      showNotificationMessage('Sila pilih sekurang-kurangnya satu aset', 'error');
-      return false;
-    }
-
-    // Validate email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      showNotificationMessage('Format email tidak sah', 'error');
-      return false;
-    }
-
-    // Validate phone
-    const phoneRegex = /^[0-9]{10,11}$/;
-    if (!phoneRegex.test(phone.replace(/[-\s]/g, ''))) {
-      showNotificationMessage('Format nombor telefon tidak sah', 'error');
-      return false;
-    }
-
-    return true;
-  };
-
-  const checkAssetAvailability = (selectedItems) => {
-    for (const item of selectedItems) {
-      const asset = assets.find(a => a.id === item.assetId);
-      if (!asset || asset.available < item.quantity) {
-        return {
-          available: false,
-          message: `${item.name} tidak mencukupi. Hanya ${asset?.available || 0} unit tersedia.`
-        };
-      }
-    }
-    return { available: true };
-  };
-
-  // ==================== EMAIL FUNCTIONS ====================
-
-  const sendDailyReminders = async () => {
-    if (!isEmailConfigured()) return;
-
-    const approvedApplications = applications.filter(app => 
-      app.status === 'approved' && !app.fullyReturned
-    );
-
-    for (const app of approvedApplications) {
-      const daysUntilReturn = calculateDaysUntilReturn(app.returnDate);
-      
-      // Send reminder 3 days before, 1 day before, and on overdue
-      if (daysUntilReturn === 3 || daysUntilReturn === 1 || daysUntilReturn === 0 || daysUntilReturn < 0) {
-        await EmailService.sendReminderNotification(app, daysUntilReturn);
-      }
-    }
-  };
-
-  // ==================== APPLICATION FUNCTIONS ====================
-
-  const handleItemSelection = (asset, quantity) => {
-    const existingIndex = borrowerForm.selectedItems.findIndex(item => item.assetId === asset.id);
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
     
-    if (quantity === 0) {
-      // Remove item
-      setBorrowerForm({
-        ...borrowerForm,
-        selectedItems: borrowerForm.selectedItems.filter(item => item.assetId !== asset.id)
-      });
-    } else if (existingIndex >= 0) {
-      // Update quantity
-      const updatedItems = [...borrowerForm.selectedItems];
-      updatedItems[existingIndex] = {
-        ...updatedItems[existingIndex],
-        quantity: quantity
-      };
-      setBorrowerForm({
-        ...borrowerForm,
-        selectedItems: updatedItems
-      });
-    } else {
-      // Add new item
-      setBorrowerForm({
-        ...borrowerForm,
-        selectedItems: [...borrowerForm.selectedItems, {
-          assetId: asset.id,
-          name: asset.name,
-          category: asset.category,
-          quantity: quantity,
-          borrowed: quantity,
-          returned: 0,
-          balance: quantity
-        }]
-      });
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const lastPos = signaturePad[canvasId];
+    if (lastPos) {
+      ctx.beginPath();
+      ctx.moveTo(lastPos.x, lastPos.y);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.stroke();
     }
+    
+    setSignaturePad({
+      ...signaturePad,
+      [canvasId]: { x, y }
+    });
   };
 
-  const submitApplication = async () => {
-    if (!validateForm()) return;
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
 
-    // Check availability
-    const availabilityCheck = checkAssetAvailability(borrowerForm.selectedItems);
-    if (!availabilityCheck.available) {
-      showNotificationMessage(availabilityCheck.message, 'error');
+  const clearSignature = (canvasId) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const saveSignature = (canvasId, appId = null, returnId = null) => {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return null;
+    
+    const signatureData = canvas.toDataURL();
+    
+    if (appId) {
+      // Save approval signature
+      setApplications(applications.map(a => 
+        a.id === appId ? { ...a, approvalSignature: signatureData } : a
+      ));
+    } else if (returnId) {
+      // Save return signature
+      setReturns(returns.map(r => 
+        r.id === returnId ? { ...r, confirmationSignature: signatureData } : r
+      ));
+    }
+    
+    return signatureData;
+  };
+
+  // Loan Application Functions
+  const addItemToLoan = (assetId) => {
+    const asset = assets.find(a => a.id === assetId);
+    if (!asset || !asset.active) return;
+    
+    const existing = selectedItems.find(i => i.assetId === assetId);
+    if (existing) {
+      showMessage('error', 'Item ini sudah ditambah');
+      return;
+    }
+    
+    setSelectedItems([...selectedItems, {
+      assetId: asset.id,
+      name: asset.name,
+      quantity: 1,
+      maxAvailable: asset.available
+    }]);
+  };
+
+  const updateItemQuantity = (assetId, quantity) => {
+    const item = selectedItems.find(i => i.assetId === assetId);
+    if (!item) return;
+    
+    const newQty = Math.max(1, Math.min(quantity, item.maxAvailable));
+    setSelectedItems(selectedItems.map(i =>
+      i.assetId === assetId ? { ...i, quantity: newQty } : i
+    ));
+  };
+
+  const removeItemFromLoan = (assetId) => {
+    setSelectedItems(selectedItems.filter(i => i.assetId !== assetId));
+  };
+
+  const submitLoanApplication = () => {
+    if (!loanForm.borrowerName || !loanForm.department || !loanForm.email || 
+        !loanForm.phone || !loanForm.loanDate || !loanForm.returnDate || 
+        selectedItems.length === 0) {
+      showMessage('error', 'Sila lengkapkan semua maklumat');
       return;
     }
 
+    const loanDate = new Date(loanForm.loanDate);
+    const returnDate = new Date(loanForm.returnDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (loanDate < today) {
+      showMessage('error', 'Tarikh peminjaman tidak boleh di masa lepas');
+      return;
+    }
+
+    if (returnDate <= loanDate) {
+      showMessage('error', 'Tarikh pemulangan mesti selepas tarikh peminjaman');
+      return;
+    }
+
+    setLoading(true);
+
     const newApplication = {
-      id: generateApplicationId(),
-      ...borrowerForm,
-      items: borrowerForm.selectedItems,
-      status: 'pending',
+      id: generateId(),
+      ...loanForm,
+      items: selectedItems.map(item => ({
+        assetId: item.assetId,
+        name: item.name,
+        borrowed: item.quantity,
+        returned: 0,
+        balance: item.quantity
+      })),
+      status: 'PENDING',
       submittedDate: new Date().toISOString(),
-      approvedDate: null,
       approvedBy: null,
-      rejectedDate: null,
-      rejectedReason: null,
-      fullyReturned: false,
-      returnHistory: []
+      approvedDate: null,
+      rejectedReason: null
     };
 
     setApplications([...applications, newApplication]);
-    
-    showNotificationMessage(
-      `Permohonan berjaya dihantar! ID Permohonan: ${newApplication.id}`,
-      'success'
-    );
 
     // Reset form
-    setBorrowerForm({
+    setLoanForm({
       borrowerName: '',
-      staffId: '',
+      department: '',
       email: '',
       phone: '',
-      department: '',
       purpose: '',
       loanDate: '',
       returnDate: '',
-      selectedItems: []
+      items: []
     });
-
-    // Navigate to status view
-    setTimeout(() => {
-      setCurrentView('status');
-    }, 2000);
+    setSelectedItems([]);
+    
+    setLoading(false);
+    showMessage('success', 'Permohonan berjaya dihantar! ID: ' + newApplication.id);
+    setPage('landing');
   };
 
-  const approveApplication = async (applicationId) => {
-    const app = applications.find(a => a.id === applicationId);
+  // Admin Functions
+  const handleAdminLogin = () => {
+    if (adminPassword === 'admin123') {
+      setAdminAuth(true);
+      setPage('admin');
+      showMessage('success', 'Log masuk berjaya');
+    } else {
+      showMessage('error', 'Kata laluan salah');
+    }
+  };
+
+  const handleApproveApplication = async (appId) => {
+    const app = applications.find(a => a.id === appId);
     if (!app) return;
 
-    // Check availability again
-    const availabilityCheck = checkAssetAvailability(app.selectedItems);
-    if (!availabilityCheck.available) {
-      showNotificationMessage(availabilityCheck.message, 'error');
-      return;
+    // Check availability
+    for (const item of app.items) {
+      const asset = assets.find(a => a.id === item.assetId);
+      if (!asset || asset.available < item.borrowed) {
+        showMessage('error', `Aset "${item.name}" tidak mencukupi`);
+        return;
+      }
     }
 
-    // Update asset inventory
+    // Update application
+    const updatedApplications = applications.map(a =>
+      a.id === appId ? {
+        ...a,
+        status: 'APPROVED',
+        approvedBy: 'Admin',
+        approvedDate: new Date().toISOString()
+      } : a
+    );
+    setApplications(updatedApplications);
+
+    // Update asset availability
     const updatedAssets = assets.map(asset => {
-      const borrowedItem = app.selectedItems.find(item => item.assetId === asset.id);
-      if (borrowedItem) {
-        return {
-          ...asset,
-          available: asset.available - borrowedItem.quantity
-        };
+      const loanItem = app.items.find(i => i.assetId === asset.id);
+      if (loanItem) {
+        return { ...asset, available: asset.available - loanItem.borrowed };
       }
       return asset;
     });
     setAssets(updatedAssets);
 
-    // Update application
-    const updatedApplications = applications.map(a => {
-      if (a.id === applicationId) {
-        return {
-          ...a,
-          status: 'approved',
-          approvedDate: new Date().toISOString(),
-          approvedBy: 'Admin'
-        };
-      }
-      return a;
-    });
-    setApplications(updatedApplications);
-
-    // Send approval email
-    const approvedApp = updatedApplications.find(a => a.id === applicationId);
+    // Send email notification
     if (isEmailConfigured()) {
-      const emailSent = await EmailService.sendApprovalNotification(approvedApp, 'Admin');
-      if (emailSent) {
-        showNotificationMessage('Permohonan diluluskan dan email dihantar!', 'success');
-      } else {
-        showNotificationMessage('Permohonan diluluskan tetapi email gagal dihantar', 'warning');
+      try {
+        await EmailService.sendApprovalNotification(
+          updatedApplications.find(a => a.id === appId),
+          'Admin'
+        );
+        showMessage('success', 'Permohonan diluluskan & email dihantar');
+      } catch (error) {
+        showMessage('success', 'Permohonan diluluskan (email gagal dihantar)');
       }
     } else {
-      showNotificationMessage('Permohonan diluluskan!', 'success');
+      showMessage('success', 'Permohonan diluluskan');
     }
 
-    setSelectedApplication(null);
+    setShowConfirmModal(false);
   };
 
-  const rejectApplication = (applicationId, reason) => {
-    const updatedApplications = applications.map(app => {
-      if (app.id === applicationId) {
-        return {
-          ...app,
-          status: 'rejected',
-          rejectedDate: new Date().toISOString(),
-          rejectedReason: reason
-        };
-      }
-      return app;
-    });
+  const handleRejectApplication = (appId, reason) => {
+    const updatedApplications = applications.map(a =>
+      a.id === appId ? {
+        ...a,
+        status: 'REJECTED',
+        rejectedReason: reason || 'Tiada sebab dinyatakan',
+        rejectedDate: new Date().toISOString()
+      } : a
+    );
     setApplications(updatedApplications);
-    showNotificationMessage('Permohonan ditolak', 'info');
-    setSelectedApplication(null);
+    showMessage('success', 'Permohonan ditolak');
+    setShowConfirmModal(false);
   };
 
-  const processReturn = (applicationId, returnedItems) => {
-    const app = applications.find(a => a.id === applicationId);
+  const handleReturnItems = (appId, returnData) => {
+    const app = applications.find(a => a.id === appId);
     if (!app) return;
 
     // Update application items
     const updatedItems = app.items.map(item => {
-      const returnedItem = returnedItems.find(r => r.assetId === item.assetId);
-      if (returnedItem) {
-        return {
-          ...item,
-          returned: item.returned + returnedItem.quantity,
-          balance: item.balance - returnedItem.quantity
-        };
-      }
-      return item;
+      const returned = returnData[item.assetId] || 0;
+      return {
+        ...item,
+        returned: item.returned + returned,
+        balance: item.borrowed - (item.returned + returned)
+      };
     });
 
-    // Check if fully returned
-    const fullyReturned = updatedItems.every(item => item.balance === 0);
+    const allReturned = updatedItems.every(item => item.balance === 0);
 
-    // Update asset inventory
+    const updatedApplications = applications.map(a =>
+      a.id === appId ? {
+        ...a,
+        items: updatedItems,
+        status: allReturned ? 'COMPLETED' : a.status
+      } : a
+    );
+    setApplications(updatedApplications);
+
+    // Update asset availability
     const updatedAssets = assets.map(asset => {
-      const returnedItem = returnedItems.find(r => r.assetId === asset.id);
-      if (returnedItem) {
-        return {
-          ...asset,
-          available: asset.available + returnedItem.quantity
-        };
+      const returnQty = returnData[asset.id] || 0;
+      if (returnQty > 0) {
+        return { ...asset, available: asset.available + returnQty };
       }
       return asset;
     });
     setAssets(updatedAssets);
 
-    // Update application
-    const updatedApplications = applications.map(a => {
-      if (a.id === applicationId) {
+    // Create return record
+    const newReturn = {
+      id: 'RET' + Date.now(),
+      applicationId: appId,
+      returnDate: new Date().toISOString(),
+      items: Object.entries(returnData).map(([assetId, qty]) => {
+        const asset = assets.find(a => a.id === parseInt(assetId));
         return {
-          ...a,
-          items: updatedItems,
-          fullyReturned: fullyReturned,
-          returnHistory: [
-            ...a.returnHistory,
-            {
-              date: new Date().toISOString(),
-              items: returnedItems,
-              processedBy: 'Admin'
-            }
-          ]
+          assetId: parseInt(assetId),
+          name: asset ? asset.name : '',
+          quantity: qty
         };
-      }
-      return a;
-    });
-    setApplications(updatedApplications);
+      }).filter(item => item.quantity > 0),
+      confirmedBy: 'Admin'
+    };
+    setReturns([...returns, newReturn]);
 
-    showNotificationMessage(
-      fullyReturned ? 'Semua aset telah dipulangkan' : 'Pemulangan sebahagian berjaya direkod',
-      'success'
-    );
-    setSelectedApplication(null);
+    showMessage('success', allReturned ? 'Semua item dipulangkan' : 'Pemulangan sebahagian berjaya');
   };
 
-  // ==================== ADMIN FUNCTIONS ====================
-
-  const handleAdminLogin = () => {
-    // Simple password check - in production, use proper authentication
-    if (adminPassword === 'admin123') {
-      setIsAdminLoggedIn(true);
-      setShowPasswordInput(false);
-      setAdminPassword('');
-      localStorage.setItem('libloan_admin_session', 'true');
-      setCurrentView('admin');
-      showNotificationMessage('Log masuk berjaya', 'success');
-    } else {
-      showNotificationMessage('Kata laluan salah', 'error');
-      setAdminPassword('');
-    }
-  };
-
-  const handleAdminLogout = () => {
-    setIsAdminLoggedIn(false);
-    localStorage.removeItem('libloan_admin_session');
-    setCurrentView('home');
-    showNotificationMessage('Log keluar berjaya', 'info');
-  };
-
-  // ==================== FILTERING & SEARCH ====================
-
-  const getFilteredApplications = () => {
-    let filtered = applications;
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'returned') {
-        filtered = filtered.filter(app => app.fullyReturned);
-      } else {
-        filtered = filtered.filter(app => app.status === statusFilter);
-      }
+  const handleAddAsset = () => {
+    if (!newAsset.name || newAsset.quantity < 1) {
+      showMessage('error', 'Sila lengkapkan maklumat aset');
+      return;
     }
 
-    // Date filter
-    if (dateFilter !== 'all') {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const asset = {
+      id: Math.max(...assets.map(a => a.id), 0) + 1,
+      name: newAsset.name,
+      quantity: parseInt(newAsset.quantity),
+      available: parseInt(newAsset.quantity),
+      category: newAsset.category || 'Lain-lain',
+      notes: newAsset.notes,
+      active: true,
+      image: ''
+    };
+
+    setAssets([...assets, asset]);
+    setNewAsset({ name: '', quantity: 1, category: 'Meja', notes: '' });
+    showMessage('success', 'Aset berjaya ditambah');
+  };
+
+  const handleUpdateAsset = (assetId, updates) => {
+    setAssets(assets.map(a =>
+      a.id === assetId ? { ...a, ...updates } : a
+    ));
+    showMessage('success', 'Aset dikemaskini');
+  };
+
+  const handleImageUpload = (file, assetId) => {
+    if (!file) return;
+
+    setUploadingImage(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const imageData = e.target.result;
+      setAssets(assets.map(a =>
+        a.id === assetId ? { ...a, image: imageData } : a
+      ));
+      setUploadingImage(false);
+      setEditImageAssetId(null);
+      showMessage('success', 'Gambar berjaya dimuat naik');
+    };
+
+    reader.onerror = () => {
+      setUploadingImage(false);
+      showMessage('error', 'Gagal memuat naik gambar');
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  // Send reminder emails
+  const sendReminders = async () => {
+    if (!isEmailConfigured()) {
+      showMessage('error', 'Email tidak dikonfigurasi');
+      return;
+    }
+
+    const approvedApps = applications.filter(a => a.status === 'APPROVED');
+    let sentCount = 0;
+
+    for (const app of approvedApps) {
+      const daysUntilReturn = calculateDaysUntilReturn(app.returnDate);
       
-      filtered = filtered.filter(app => {
-        const appDate = new Date(app.submittedDate);
-        const daysDiff = Math.floor((now - appDate) / (1000 * 60 * 60 * 24));
-        
-        if (dateFilter === 'today') return daysDiff === 0;
-        if (dateFilter === 'week') return daysDiff <= 7;
-        if (dateFilter === 'month') return daysDiff <= 30;
-        return true;
-      });
+      // Send reminder if within 3 days or overdue
+      if (daysUntilReturn <= 3) {
+        try {
+          await EmailService.sendReminderNotification(app, daysUntilReturn);
+          sentCount++;
+        } catch (error) {
+          console.error('Failed to send reminder:', error);
+        }
+      }
     }
 
-    // Search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(app =>
-        app.id.toLowerCase().includes(term) ||
-        app.borrowerName.toLowerCase().includes(term) ||
-        app.staffId.toLowerCase().includes(term) ||
-        app.department.toLowerCase().includes(term)
-      );
+    if (sentCount > 0) {
+      showMessage('success', `${sentCount} reminder email dihantar`);
+    } else {
+      showMessage('error', 'Tiada reminder perlu dihantar');
     }
-
-    return filtered;
   };
 
-  // ==================== STATISTICS ====================
+  // Pages Components
+  const LandingPage = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Package className="w-12 h-12 text-indigo-600" />
+            <h1 className="text-4xl font-bold text-gray-800">LibLoanPPD</h1>
+          </div>
+          <p className="text-gray-600 text-lg">Sistem Peminjaman Aset Perpustakaan</p>
+          <p className="text-sm text-gray-500 mt-2">Politeknik Port Dickson</p>
+        </div>
 
-  const getStatistics = () => {
-    const pending = applications.filter(app => app.status === 'pending').length;
-    const approved = applications.filter(app => app.status === 'approved').length;
-    const rejected = applications.filter(app => app.status === 'rejected').length;
-    const fullyReturned = applications.filter(app => app.fullyReturned).length;
-    const overdueCount = applications.filter(app => {
-      if (app.status !== 'approved' || app.fullyReturned) return false;
-      const daysUntil = calculateDaysUntilReturn(app.returnDate);
-      return daysUntil < 0;
-    }).length;
-
-    const totalAssets = assets.reduce((sum, asset) => sum + asset.total, 0);
-    const availableAssets = assets.reduce((sum, asset) => sum + asset.available, 0);
-    const borrowedAssets = totalAssets - availableAssets;
-
-    return {
-      pending,
-      approved,
-      rejected,
-      fullyReturned,
-      overdueCount,
-      totalAssets,
-      availableAssets,
-      borrowedAssets,
-      utilizationRate: totalAssets > 0 ? ((borrowedAssets / totalAssets) * 100).toFixed(1) : 0
-    };
-  };
-
-  // ==================== RENDER COMPONENTS ====================
-
-  const renderNotification = () => {
-    if (!showNotification) return null;
-
-    const bgColors = {
-      success: 'bg-green-500',
-      error: 'bg-red-500',
-      warning: 'bg-yellow-500',
-      info: 'bg-blue-500'
-    };
-
-    const icons = {
-      success: CheckCircle,
-      error: XCircle,
-      warning: AlertCircle,
-      info: AlertCircle
-    };
-
-    const Icon = icons[notificationType];
-
-    return (
-      <div className="fixed top-4 right-4 z-50 animate-slide-in">
-        <div className={`${bgColors[notificationType]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 max-w-md`}>
-          <Icon className="w-6 h-6 flex-shrink-0" />
-          <p className="font-medium">{notificationMessage}</p>
+        {/* Action Cards */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           <button
-            onClick={() => setShowNotification(false)}
-            className="ml-auto hover:bg-white/20 rounded p-1"
+            onClick={() => setPage('loan')}
+            className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group"
           >
-            <XCircle className="w-5 h-5" />
+            <div className="bg-indigo-100 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:bg-indigo-600 transition-colors">
+              <Plus className="w-8 h-8 text-indigo-600 group-hover:text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Mohon Peminjaman</h3>
+            <p className="text-gray-600">Buat permohonan peminjaman aset baru</p>
+          </button>
+
+          <button
+            onClick={() => setPage('status')}
+            className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group"
+          >
+            <div className="bg-green-100 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-600 transition-colors">
+              <Search className="w-8 h-8 text-green-600 group-hover:text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Semak Status</h3>
+            <p className="text-gray-600">Lihat status permohonan anda</p>
+          </button>
+
+          <button
+            onClick={() => setPage('adminLogin')}
+            className="bg-white rounded-xl shadow-lg p-8 hover:shadow-xl transition-all transform hover:-translate-y-1 text-left group"
+          >
+            <div className="bg-purple-100 w-16 h-16 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-600 transition-colors">
+              <Shield className="w-8 h-8 text-purple-600 group-hover:text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Admin</h3>
+            <p className="text-gray-600">Log masuk panel pentadbir</p>
           </button>
         </div>
-      </div>
-    );
-  };
 
-  const renderHeader = () => (
-    <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-10 h-10" />
-            <div>
-              <h1 className="text-2xl font-bold">LibLoanPPD</h1>
-              <p className="text-blue-100 text-sm">Sistem Peminjaman Aset - Perpustakaan PPD</p>
-            </div>
-          </div>
-
-          <nav className="flex items-center gap-4">
-            {!isAdminLoggedIn ? (
-              <>
-                <button
-                  onClick={() => setCurrentView('home')}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    currentView === 'home' ? 'bg-white text-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Utama
-                </button>
-                <button
-                  onClick={() => setCurrentView('application')}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    currentView === 'application' ? 'bg-white text-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Mohon Peminjaman
-                </button>
-                <button
-                  onClick={() => setCurrentView('status')}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    currentView === 'status' ? 'bg-white text-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Semak Status
-                </button>
-                <button
-                  onClick={() => setShowPasswordInput(true)}
-                  className="px-4 py-2 rounded-lg bg-blue-900 hover:bg-blue-950 transition-colors flex items-center gap-2"
-                >
-                  <LogIn className="w-4 h-4" />
-                  Admin
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setCurrentView('admin')}
-                  className={`px-4 py-2 rounded-lg transition-colors ${
-                    currentView === 'admin' ? 'bg-white text-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Dashboard Admin
-                </button>
-                <button
-                  onClick={handleAdminLogout}
-                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 transition-colors flex items-center gap-2"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Log Keluar
-                </button>
-              </>
-            )}
-          </nav>
-        </div>
-      </div>
-    </header>
-  );
-
-  const renderHome = () => {
-    const stats = getStatistics();
-
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Hero Section */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-700 rounded-2xl p-8 text-white mb-8 shadow-xl">
-          <h2 className="text-3xl font-bold mb-4">Selamat Datang ke LibLoanPPD</h2>
-          <p className="text-xl mb-6 text-blue-100">
-            Sistem peminjaman aset perpustakaan yang mudah dan cekap untuk warga Politeknik Port Dickson
-          </p>
-          <div className="flex gap-4">
-            <button
-              onClick={() => setCurrentView('application')}
-              className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
-            >
-              Mohon Sekarang
-            </button>
-            <button
-              onClick={() => setCurrentView('status')}
-              className="bg-blue-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-900 transition-colors"
-            >
-              Semak Status
-            </button>
-          </div>
-        </div>
-
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <Package className="w-8 h-8 text-blue-600" />
-              <span className="text-2xl font-bold text-gray-800">{stats.totalAssets}</span>
-            </div>
-            <p className="text-gray-600 font-medium">Jumlah Aset</p>
-            <p className="text-sm text-gray-500 mt-1">{stats.availableAssets} tersedia</p>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-8 h-8 text-green-600" />
-              <span className="text-2xl font-bold text-gray-800">{stats.utilizationRate}%</span>
-            </div>
-            <p className="text-gray-600 font-medium">Kadar Penggunaan</p>
-            <p className="text-sm text-gray-500 mt-1">{stats.borrowedAssets} dipinjam</p>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <Clock className="w-8 h-8 text-yellow-600" />
-              <span className="text-2xl font-bold text-gray-800">{stats.pending}</span>
-            </div>
-            <p className="text-gray-600 font-medium">Menunggu Kelulusan</p>
-            <p className="text-sm text-gray-500 mt-1">{stats.approved} diluluskan</p>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <AlertCircle className="w-8 h-8 text-red-600" />
-              <span className="text-2xl font-bold text-gray-800">{stats.overdueCount}</span>
-            </div>
-            <p className="text-gray-600 font-medium">Lewat Tarikh</p>
-            <p className="text-sm text-gray-500 mt-1">{stats.fullyReturned} dipulangkan</p>
-          </div>
-        </div>
-
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <CheckCircle className="w-12 h-12 text-green-600 mb-4" />
-            <h3 className="text-xl font-bold mb-2">Proses Mudah</h3>
-            <p className="text-gray-600">
-              Mohon peminjaman aset dalam beberapa langkah mudah. Borang yang ringkas dan jelas.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <Mail className="w-12 h-12 text-blue-600 mb-4" />
-            <h3 className="text-xl font-bold mb-2">Notifikasi Email</h3>
-            <p className="text-gray-600">
-              Terima notifikasi automatik untuk kelulusan, penolakan, dan reminder pemulangan.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            <FileText className="w-12 h-12 text-purple-600 mb-4" />
-            <h3 className="text-xl font-bold mb-2">Tracking Lengkap</h3>
-            <p className="text-gray-600">
-              Jejak status permohonan dan sejarah peminjaman anda dengan mudah.
-            </p>
-          </div>
-        </div>
-
-        {/* Available Assets */}
-        <div className="bg-white rounded-xl p-6 shadow-md">
-          <h3 className="text-2xl font-bold mb-6">Aset Tersedia</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {assets.map(asset => (
-              <div key={asset.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="font-semibold text-gray-800">{asset.name}</p>
-                    <p className="text-sm text-gray-500">{asset.category}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    asset.available > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {asset.available > 0 ? 'Tersedia' : 'Habis'}
-                  </span>
+        {/* Info Section */}
+        <div className="mt-16 max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Aset Tersedia</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            {assets.filter(a => a.active).slice(0, 6).map(asset => (
+              <div key={asset.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {asset.image ? (
+                    <img src={asset.image} alt={asset.name} className="w-12 h-12 object-cover rounded" />
+                  ) : (
+                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                      <Package className="w-6 h-6 text-gray-400" />
+                    </div>
+                  )}
+                  <span className="font-medium text-gray-700">{asset.name}</span>
                 </div>
-                <div className="mt-3">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Tersedia:</span>
-                    <span className="font-semibold">{asset.available}/{asset.total}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        asset.available > asset.total * 0.5 ? 'bg-green-500' :
-                        asset.available > 0 ? 'bg-yellow-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${(asset.available / asset.total) * 100}%` }}
-                    />
-                  </div>
-                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                  asset.available === 0 ? 'bg-red-100 text-red-800' :
+                  asset.available < asset.quantity * 0.3 ? 'bg-orange-100 text-orange-800' :
+                  'bg-green-100 text-green-800'
+                }`}>
+                  {asset.available}/{asset.quantity}
+                </span>
               </div>
             ))}
           </div>
+          {assets.filter(a => a.active).length > 6 && (
+            <p className="text-center text-gray-500 mt-4 text-sm">
+              +{assets.filter(a => a.active).length - 6} lagi aset tersedia
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="mt-12 text-center text-gray-600">
+          <div className="flex items-center justify-center gap-6 mb-4">
+            <div className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              <span>perpustakaan@polipd.edu.my</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Phone className="w-5 h-5" />
+              <span>06-647 7000</span>
+            </div>
+          </div>
+          <p className="text-sm text-gray-500">© 2024 Perpustakaan Politeknik Port Dickson</p>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
-  const renderApplicationForm = () => {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <FileText className="w-8 h-8 text-blue-600" />
-            <h2 className="text-3xl font-bold">Borang Permohonan Peminjaman</h2>
-          </div>
-
-          {/* Borrower Information */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Maklumat Peminjam
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nama Penuh *
-                </label>
-                <input
-                  type="text"
-                  value={borrowerForm.borrowerName}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, borrowerName: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Nama penuh anda"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  No. Staf/Pelajar *
-                </label>
-                <input
-                  type="text"
-                  value={borrowerForm.staffId}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, staffId: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Contoh: 2024123456"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={borrowerForm.email}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="email@polipd.edu.my"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  No. Telefon *
-                </label>
-                <input
-                  type="tel"
-                  value={borrowerForm.phone}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, phone: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="0123456789"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Jabatan *
-                </label>
-                <select
-                  value={borrowerForm.department}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, department: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Pilih Jabatan</option>
-                  <option value="Jabatan Teknologi Maklumat">Jabatan Teknologi Maklumat</option>
-                  <option value="Jabatan Kejuruteraan Awam">Jabatan Kejuruteraan Awam</option>
-                  <option value="Jabatan Kejuruteraan Elektrik">Jabatan Kejuruteraan Elektrik</option>
-                  <option value="Jabatan Kejuruteraan Mekanikal">Jabatan Kejuruteraan Mekanikal</option>
-                  <option value="Jabatan Perdagangan">Jabatan Perdagangan</option>
-                  <option value="Jabatan Pelancongan">Jabatan Pelancongan</option>
-                  <option value="Unit Hal Ehwal Pelajar">Unit Hal Ehwal Pelajar</option>
-                  <option value="Unit Kokurikulum">Unit Kokurikulum</option>
-                  <option value="Lain-lain">Lain-lain</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tujuan Peminjaman *
-                </label>
-                <input
-                  type="text"
-                  value={borrowerForm.purpose}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, purpose: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Contoh: Persembahan projek"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Loan Period */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Tempoh Peminjaman
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tarikh Peminjaman *
-                </label>
-                <input
-                  type="date"
-                  value={borrowerForm.loanDate}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, loanDate: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tarikh Pemulangan *
-                </label>
-                <input
-                  type="date"
-                  value={borrowerForm.returnDate}
-                  onChange={(e) => setBorrowerForm({ ...borrowerForm, returnDate: e.target.value })}
-                  min={borrowerForm.loanDate || new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Asset Selection */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Pilih Aset
-            </h3>
-            <div className="space-y-3">
-              {assets.map(asset => {
-                const selectedItem = borrowerForm.selectedItems.find(item => item.assetId === asset.id);
-                const selectedQuantity = selectedItem ? selectedItem.quantity : 0;
-
-                return (
-                  <div key={asset.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className="font-semibold text-gray-800">{asset.name}</h4>
-                          <span className="text-sm text-gray-500">({asset.category})</span>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            asset.available > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {asset.available} tersedia
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-gray-700">Kuantiti:</label>
-                        <select
-                          value={selectedQuantity}
-                          onChange={(e) => handleItemSelection(asset, parseInt(e.target.value))}
-                          disabled={asset.available === 0}
-                          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        >
-                          <option value="0">0</option>
-                          {[...Array(Math.min(asset.available, 10))].map((_, i) => (
-                            <option key={i + 1} value={i + 1}>{i + 1}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {borrowerForm.selectedItems.length > 0 && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-900 mb-2">
-                  Ringkasan Pilihan ({borrowerForm.selectedItems.length} item):
-                </h4>
-                <ul className="space-y-1">
-                  {borrowerForm.selectedItems.map((item, index) => (
-                    <li key={index} className="text-blue-800">
-                      • {item.name} - {item.quantity} unit
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          {/* Submit Button */}
-          <div className="flex gap-4">
-            <button
-              onClick={submitApplication}
-              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-            >
-              <Send className="w-5 h-5" />
-              Hantar Permohonan
-            </button>
-            <button
-              onClick={() => {
-                setBorrowerForm({
-                  borrowerName: '',
-                  staffId: '',
-                  email: '',
-                  phone: '',
-                  department: '',
-                  purpose: '',
-                  loanDate: '',
-                  returnDate: '',
-                  selectedItems: []
-                });
-              }}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-            >
-              Reset
-            </button>
-          </div>
+  const LoanApplicationPage = () => (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => setPage('landing')}
+            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 mb-4"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Kembali
+          </button>
+          <h1 className="text-3xl font-bold text-gray-800">Permohonan Peminjaman</h1>
+          <p className="text-gray-600 mt-2">Lengkapkan maklumat di bawah untuk membuat permohonan</p>
         </div>
-      </div>
-    );
-  };
 
-  const renderStatusCheck = () => {
-    return (
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Search className="w-8 h-8 text-blue-600" />
-              <h2 className="text-3xl font-bold">Semak Status Permohonan</h2>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Maklumat Peminjam</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <User className="w-4 h-4 inline mr-1" />
+                Nama Penuh
+              </label>
               <input
                 type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari mengikut ID permohonan, nama, no. staf, atau jabatan..."
-                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={loanForm.borrowerName}
+                onChange={(e) => setLoanForm({ ...loanForm, borrowerName: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Nama peminjam"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Building2 className="w-4 h-4 inline mr-1" />
+                Jabatan/Unit
+              </label>
+              <input
+                type="text"
+                value={loanForm.department}
+                onChange={(e) => setLoanForm({ ...loanForm, department: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Contoh: Jabatan Kejuruteraan Mekanikal"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Mail className="w-4 h-4 inline mr-1" />
+                Emel
+              </label>
+              <input
+                type="email"
+                value={loanForm.email}
+                onChange={(e) => setLoanForm({ ...loanForm, email: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="nama@polipd.edu.my"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Phone className="w-4 h-4 inline mr-1" />
+                No. Telefon
+              </label>
+              <input
+                type="tel"
+                value={loanForm.phone}
+                onChange={(e) => setLoanForm({ ...loanForm, phone: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="012-3456789"
               />
             </div>
           </div>
-
-          {/* Filters */}
-          <div className="flex gap-4 mb-6 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-700">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Semua</option>
-                <option value="pending">Menunggu</option>
-                <option value="approved">Diluluskan</option>
-                <option value="rejected">Ditolak</option>
-                <option value="returned">Dipulangkan</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-gray-600" />
-              <span className="font-medium text-gray-700">Tarikh:</span>
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">Semua</option>
-                <option value="today">Hari Ini</option>
-                <option value="week">7 Hari Lepas</option>
-                <option value="month">30 Hari Lepas</option>
-              </select>
-            </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              Tujuan Peminjaman
+            </label>
+            <textarea
+              value={loanForm.purpose}
+              onChange={(e) => setLoanForm({ ...loanForm, purpose: e.target.value })}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              rows="3"
+              placeholder="Nyatakan tujuan peminjaman..."
+            />
           </div>
-
-          {/* Applications List */}
-          <div className="space-y-4">
-            {getFilteredApplications().length === 0 ? (
-              <div className="text-center py-12">
-                <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 text-lg">Tiada permohonan dijumpai</p>
-                <p className="text-gray-400 mt-2">
-                  {applications.length === 0 
-                    ? 'Belum ada permohonan. Cuba mohon peminjaman dahulu.'
-                    : 'Cuba ubah kriteria carian atau penapis anda.'}
-                </p>
-              </div>
-            ) : (
-              getFilteredApplications().map(app => {
-                const daysUntilReturn = app.status === 'approved' && !app.fullyReturned 
-                  ? calculateDaysUntilReturn(app.returnDate)
-                  : null;
-
-                return (
-                  <div key={app.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-1">{app.id}</h3>
-                        <p className="text-gray-600">{app.borrowerName} - {app.department}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          app.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          app.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          app.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {app.status === 'pending' ? 'Menunggu' :
-                           app.status === 'approved' ? 'Diluluskan' :
-                           app.status === 'rejected' ? 'Ditolak' : app.status}
-                        </span>
-                        {app.fullyReturned && (
-                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                            Dipulangkan
-                          </span>
-                        )}
-                        {daysUntilReturn !== null && daysUntilReturn < 0 && (
-                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                            Lewat {Math.abs(daysUntilReturn)} hari
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Tarikh Mohon</p>
-                        <p className="font-medium">{formatDate(app.submittedDate)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Tarikh Pinjam</p>
-                        <p className="font-medium">{formatDate(app.loanDate)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Tarikh Pulang</p>
-                        <p className="font-medium">{formatDate(app.returnDate)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Tujuan</p>
-                        <p className="font-medium">{app.purpose}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-2">Aset Dipinjam:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {app.items.map((item, index) => (
-                          <span key={index} className="px-3 py-1 bg-gray-100 rounded-full text-sm">
-                            {item.name} - {item.borrowed} unit
-                            {app.status === 'approved' && !app.fullyReturned && (
-                              <span className="ml-2 text-gray-500">
-                                ({item.returned}/{item.borrowed} pulang)
-                              </span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {app.approvedBy && (
-                      <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                        <p className="text-sm text-green-800">
-                          ✓ Diluluskan oleh {app.approvedBy} pada {formatDate(app.approvedDate)}
-                        </p>
-                      </div>
-                    )}
-
-                    {app.rejectedReason && (
-                      <div className="mt-4 p-3 bg-red-50 rounded-lg">
-                        <p className="text-sm text-red-800">
-                          ✗ Ditolak: {app.rejectedReason}
-                        </p>
-                      </div>
-                    )}
-
-                    {daysUntilReturn !== null && daysUntilReturn >= 0 && (
-                      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                        <p className="text-sm text-blue-800">
-                          ⏰ {daysUntilReturn} hari lagi sebelum tarikh pulang
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Tarikh Peminjaman
+              </label>
+              <input
+                type="date"
+                value={loanForm.loanDate}
+                onChange={(e) => setLoanForm({ ...loanForm, loanDate: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Tarikh Pemulangan
+              </label>
+              <input
+                type="date"
+                value={loanForm.returnDate}
+                onChange={(e) => setLoanForm({ ...loanForm, returnDate: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
           </div>
         </div>
-      </div>
-    );
-  };
 
-  const renderAdminPanel = () => {
-    if (!isAdminLoggedIn) {
-      return (
-        <div className="max-w-md mx-auto px-4 py-20">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <LogIn className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-6">Admin Login Required</h2>
-            <p className="text-gray-600 mb-4">Sila log masuk untuk mengakses panel admin</p>
-            <button
-              onClick={() => setCurrentView('home')}
-              className="text-blue-600 hover:underline"
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Pilih Aset</h2>
+          <div className="mb-4">
+            <select
+              onChange={(e) => addItemToLoan(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
-              Kembali ke Halaman Utama
-            </button>
+              <option value="">-- Pilih aset untuk dipinjam --</option>
+              {assets.filter(a => a.active && a.available > 0).map(asset => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.name} ({asset.available} tersedia)
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-      );
-    }
 
-    const stats = getStatistics();
-    const pendingApps = applications.filter(app => app.status === 'pending');
-    const approvedApps = applications.filter(app => app.status === 'approved' && !app.fullyReturned);
-    const overdueApps = approvedApps.filter(app => calculateDaysUntilReturn(app.returnDate) < 0);
+          {selectedItems.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Aset</th>
+                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Kuantiti</th>
+                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Tindakan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedItems.map(item => (
+                    <tr key={item.assetId} className="border-t">
+                      <td className="py-3 px-4">{item.name}</td>
+                      <td className="py-3 px-4 text-center">
+                        <input
+                          type="number"
+                          min="1"
+                          max={item.maxAvailable}
+                          value={item.quantity}
+                          onChange={(e) => updateItemQuantity(item.assetId, parseInt(e.target.value))}
+                          className="w-20 px-2 py-1 border rounded text-center"
+                        />
+                        <span className="text-sm text-gray-500 ml-2">/ {item.maxAvailable}</span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => removeItemFromLoan(item.assetId)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-4">
+          <button
+            onClick={() => setPage('landing')}
+            className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+          >
+            Batal
+          </button>
+          <button
+            onClick={submitLoanApplication}
+            disabled={loading || selectedItems.length === 0}
+            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-medium flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Clock className="w-5 h-5 animate-spin" />
+                Menghantar...
+              </>
+            ) : (
+              <>
+                <Check className="w-5 h-5" />
+                Hantar Permohonan
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const StatusCheckPage = () => {
+    const [searchId, setSearchId] = useState('');
+    const [foundApp, setFoundApp] = useState(null);
+
+    const handleSearch = () => {
+      const app = applications.find(a => a.id.toLowerCase() === searchId.toLowerCase());
+      if (app) {
+        setFoundApp(app);
+      } else {
+        setFoundApp(null);
+        showMessage('error', 'Permohonan tidak dijumpai');
+      }
+    };
 
     return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Admin Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white mb-8 shadow-xl">
-          <h2 className="text-3xl font-bold mb-2">Dashboard Admin</h2>
-          <p className="text-blue-100">Pengurusan permohonan dan aset perpustakaan</p>
-        </div>
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="mb-8">
+            <button
+              onClick={() => setPage('landing')}
+              className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 mb-4"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Kembali
+            </button>
+            <h1 className="text-3xl font-bold text-gray-800">Semak Status Permohonan</h1>
+            <p className="text-gray-600 mt-2">Masukkan ID permohonan anda</p>
+          </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-md border-l-4 border-yellow-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Menunggu Kelulusan</p>
-                <p className="text-3xl font-bold text-gray-800">{stats.pending}</p>
-              </div>
-              <Clock className="w-12 h-12 text-yellow-500" />
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex gap-4">
+              <input
+                type="text"
+                value={searchId}
+                onChange={(e) => setSearchId(e.target.value)}
+                placeholder="Contoh: APP1234567890ABCDE"
+                className="flex-1 px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              />
+              <button
+                onClick={handleSearch}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium flex items-center gap-2"
+              >
+                <Search className="w-5 h-5" />
+                Cari
+              </button>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-md border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Diluluskan (Aktif)</p>
-                <p className="text-3xl font-bold text-gray-800">{stats.approved - stats.fullyReturned}</p>
+          {foundApp && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">{foundApp.id}</h2>
+                  <p className="text-sm text-gray-500">Tarikh mohon: {formatDate(foundApp.submittedDate)}</p>
+                </div>
+                <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                  foundApp.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                  foundApp.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                  foundApp.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                  'bg-blue-100 text-blue-800'
+                }`}>
+                  {foundApp.status === 'PENDING' ? 'Menunggu Kelulusan' :
+                   foundApp.status === 'APPROVED' ? 'Diluluskan' :
+                   foundApp.status === 'REJECTED' ? 'Ditolak' :
+                   'Selesai'}
+                </span>
               </div>
-              <CheckCircle className="w-12 h-12 text-green-500" />
-            </div>
-          </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-md border-l-4 border-red-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Lewat Tarikh</p>
-                <p className="text-3xl font-bold text-gray-800">{stats.overdueCount}</p>
-              </div>
-              <AlertCircle className="w-12 h-12 text-red-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-6 shadow-md border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm">Aset Dipinjam</p>
-                <p className="text-3xl font-bold text-gray-800">{stats.borrowedAssets}</p>
-              </div>
-              <Package className="w-12 h-12 text-blue-500" />
-            </div>
-          </div>
-        </div>
-
-        {/* Pending Applications */}
-        {pendingApps.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <Clock className="w-6 h-6 text-yellow-600" />
-              Permohonan Menunggu Kelulusan ({pendingApps.length})
-            </h3>
-            <div className="space-y-4">
-              {pendingApps.map(app => (
-                <div key={app.id} className="border border-gray-200 rounded-lg p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h4 className="text-xl font-bold text-gray-800 mb-1">{app.id}</h4>
-                      <p className="text-gray-600">{app.borrowerName} - {app.staffId}</p>
-                      <p className="text-sm text-gray-500">{app.department}</p>
-                    </div>
-                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
-                      Menunggu
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Email</p>
-                      <p className="font-medium text-sm">{app.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Telefon</p>
-                      <p className="font-medium">{app.phone}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Tarikh Pinjam</p>
-                      <p className="font-medium">{formatDate(app.loanDate)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Tarikh Pulang</p>
-                      <p className="font-medium">{formatDate(app.returnDate)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Tujuan: {app.purpose}</p>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Aset Dipohon:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {app.items.map((item, index) => {
-                        const asset = assets.find(a => a.id === item.assetId);
-                        const available = asset ? asset.available >= item.quantity : false;
-                        return (
-                          <span 
-                            key={index} 
-                            className={`px-3 py-1 rounded-full text-sm ${
-                              available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {item.name} - {item.quantity} unit
-                            {!available && ' (Tidak mencukupi!)'}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => approveApplication(app.id)}
-                      className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                      Luluskan
-                    </button>
-                    <button
-                      onClick={() => {
-                        const reason = prompt('Nyatakan sebab penolakan:');
-                        if (reason) rejectApplication(app.id, reason);
-                      }}
-                      className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <XCircle className="w-5 h-5" />
-                      Tolak
-                    </button>
+              <div className="grid md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">Maklumat Peminjam</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-gray-600">Nama:</span> <span className="font-medium">{foundApp.borrowerName}</span></p>
+                    <p><span className="text-gray-600">Jabatan:</span> <span className="font-medium">{foundApp.department}</span></p>
+                    <p><span className="text-gray-600">Emel:</span> <span className="font-medium">{foundApp.email}</span></p>
+                    <p><span className="text-gray-600">Telefon:</span> <span className="font-medium">{foundApp.phone}</span></p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Approved Applications */}
-        {approvedApps.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-              Peminjaman Aktif ({approvedApps.length})
-            </h3>
-            <div className="space-y-4">
-              {approvedApps.map(app => {
-                const daysUntilReturn = calculateDaysUntilReturn(app.returnDate);
-                const isOverdue = daysUntilReturn < 0;
-                const hasUnreturned = app.items.some(item => item.balance > 0);
-
-                return (
-                  <div key={app.id} className="border border-gray-200 rounded-lg p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h4 className="text-xl font-bold text-gray-800 mb-1">{app.id}</h4>
-                        <p className="text-gray-600">{app.borrowerName} - {app.department}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                          Diluluskan
-                        </span>
-                        {isOverdue && (
-                          <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                            Lewat {Math.abs(daysUntilReturn)} hari
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Tarikh Pinjam</p>
-                        <p className="font-medium">{formatDate(app.loanDate)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Tarikh Pulang</p>
-                        <p className="font-medium">{formatDate(app.returnDate)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Hari Lagi</p>
-                        <p className={`font-medium ${isOverdue ? 'text-red-600' : 'text-green-600'}`}>
-                          {daysUntilReturn >= 0 ? daysUntilReturn : `Lewat ${Math.abs(daysUntilReturn)}`}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Status Aset:</p>
-                      <div className="space-y-2">
-                        {app.items.map((item, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div>
-                              <p className="font-medium">{item.name}</p>
-                              <p className="text-sm text-gray-600">
-                                Dipinjam: {item.borrowed} | Dipulang: {item.returned} | Baki: {item.balance}
-                              </p>
-                            </div>
-                            {item.balance > 0 && (
-                              <button
-                                onClick={() => {
-                                  const qty = parseInt(prompt(`Pulang berapa unit ${item.name}? (Max: ${item.balance})`));
-                                  if (qty > 0 && qty <= item.balance) {
-                                    processReturn(app.id, [{ assetId: item.assetId, quantity: qty }]);
-                                  }
-                                }}
-                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                              >
-                                Pulang
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {hasUnreturned && (
-                      <button
-                        onClick={() => {
-                          const returnItems = app.items
-                            .filter(item => item.balance > 0)
-                            .map(item => ({ assetId: item.assetId, quantity: item.balance }));
-                          if (confirm('Pulangkan semua aset untuk permohonan ini?')) {
-                            processReturn(app.id, returnItems);
-                          }
-                        }}
-                        className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <CheckSquare className="w-5 h-5" />
-                        Pulangkan Semua
-                      </button>
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">Tarikh Peminjaman</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-gray-600">Pinjam:</span> <span className="font-medium">{formatDate(foundApp.loanDate)}</span></p>
+                    <p><span className="text-gray-600">Pulang:</span> <span className="font-medium">{formatDate(foundApp.returnDate)}</span></p>
+                    {foundApp.approvedDate && (
+                      <p><span className="text-gray-600">Diluluskan:</span> <span className="font-medium">{formatDate(foundApp.approvedDate)}</span></p>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Asset Inventory */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
-            <Package className="w-6 h-6 text-blue-600" />
-            Inventori Aset
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {assets.map(asset => {
-              const utilizationRate = ((asset.total - asset.available) / asset.total * 100).toFixed(0);
-              return (
-                <div key={asset.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-bold text-gray-800">{asset.name}</h4>
-                      <p className="text-sm text-gray-500">{asset.category}</p>
-                      <p className="text-xs text-gray-400 mt-1">ID: {asset.id}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      asset.available > asset.total * 0.5 ? 'bg-green-100 text-green-800' :
-                      asset.available > 0 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {asset.available}/{asset.total}
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tersedia:</span>
-                      <span className="font-semibold">{asset.available} unit</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Dipinjam:</span>
-                      <span className="font-semibold">{asset.total - asset.available} unit</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Penggunaan:</span>
-                      <span className="font-semibold">{utilizationRate}%</span>
-                    </div>
-
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                      <div
-                        className={`h-2 rounded-full ${
-                          asset.available > asset.total * 0.5 ? 'bg-green-500' :
-                          asset.available > 0 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${(asset.available / asset.total) * 100}%` }}
-                      />
-                    </div>
-                  </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-700 mb-2">Aset Dipinjam</h3>
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left py-2 px-4 font-semibold">Nama Aset</th>
+                        <th className="text-center py-2 px-4 font-semibold">Dipinjam</th>
+                        <th className="text-center py-2 px-4 font-semibold">Dipulangkan</th>
+                        <th className="text-center py-2 px-4 font-semibold">Baki</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {foundApp.items.map((item, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="py-2 px-4">{item.name}</td>
+                          <td className="py-2 px-4 text-center">{item.borrowed}</td>
+                          <td className="py-2 px-4 text-center">{item.returned}</td>
+                          <td className="py-2 px-4 text-center">
+                            <span className={item.balance === 0 ? 'text-green-600 font-semibold' : ''}>
+                              {item.balance}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {foundApp.purpose && (
+                <div className="mb-6">
+                  <h3 className="font-semibold text-gray-700 mb-2">Tujuan</h3>
+                  <p className="text-sm text-gray-600">{foundApp.purpose}</p>
+                </div>
+              )}
+
+              {foundApp.status === 'REJECTED' && foundApp.rejectedReason && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-red-800 mb-2">Sebab Ditolak</h3>
+                  <p className="text-sm text-red-700">{foundApp.rejectedReason}</p>
+                </div>
+              )}
+
+              {foundApp.status === 'APPROVED' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-green-800 mb-2">
+                    <CheckCircle className="w-5 h-5 inline mr-1" />
+                    Permohonan Diluluskan
+                  </h3>
+                  <p className="text-sm text-green-700">
+                    Sila datang ke Perpustakaan pada tarikh peminjaman untuk mengambil aset.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
   };
 
-  const renderPasswordModal = () => {
-    if (!showPasswordInput) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
-          <div className="flex items-center gap-3 mb-6">
-            <LogIn className="w-8 h-8 text-blue-600" />
-            <h3 className="text-2xl font-bold">Admin Login</h3>
+  const AdminLoginPage = () => (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="w-full max-w-md px-4">
+        <button
+          onClick={() => setPage('landing')}
+          className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 mb-6"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Kembali
+        </button>
+        
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
+              <Shield className="w-8 h-8 text-purple-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800">Admin Login</h1>
+            <p className="text-gray-600 mt-2">Masukkan kata laluan untuk akses</p>
           </div>
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Kata Laluan Admin
+              Kata Laluan
             </label>
             <input
               type="password"
               value={adminPassword}
               onChange={(e) => setAdminPassword(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAdminLogin()}
+              className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="Masukkan kata laluan"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              autoFocus
             />
-            <p className="text-xs text-gray-500 mt-2">
-              Default password: admin123
-            </p>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              onClick={handleAdminLogin}
-              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Log Masuk
-            </button>
-            <button
-              onClick={() => {
-                setShowPasswordInput(false);
-                setAdminPassword('');
-              }}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-            >
-              Batal
-            </button>
+          <button
+            onClick={handleAdminLogin}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-medium"
+          >
+            Log Masuk
+          </button>
+
+          <p className="text-xs text-gray-500 text-center mt-4">
+            Default password: admin123
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const AdminPanel = () => {
+    const [selectedApp, setSelectedApp] = useState(null);
+    const [rejectReason, setRejectReason] = useState('');
+    const [returnData, setReturnData] = useState({});
+
+    const filteredApplications = applications.filter(app => {
+      const matchesSearch = app.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           app.borrowerName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesFilter = statusFilter === 'ALL' || app.status === statusFilter;
+      return matchesSearch && matchesFilter;
+    });
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white shadow">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Shield className="w-8 h-8 text-purple-600" />
+                <h1 className="text-2xl font-bold text-gray-800">Admin Panel</h1>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={sendReminders}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium flex items-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  Hantar Reminder
+                </button>
+                <button
+                  onClick={() => {
+                    setAdminAuth(false);
+                    setPage('landing');
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium"
+                >
+                  Log Keluar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+
+        <div className="container mx-auto px-4 py-8">
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6 overflow-x-auto">
+            <button
+              onClick={() => setAdminTab('applications')}
+              className={`px-6 py-3 rounded-lg font-medium whitespace-nowrap ${
+                adminTab === 'applications' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Permohonan ({applications.filter(a => a.status === 'PENDING').length})
+            </button>
+            <button
+              onClick={() => setAdminTab('approved')}
+              className={`px-6 py-3 rounded-lg font-medium whitespace-nowrap ${
+                adminTab === 'approved' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Diluluskan ({applications.filter(a => a.status === 'APPROVED').length})
+            </button>
+            <button
+              onClick={() => setAdminTab('returns')}
+              className={`px-6 py-3 rounded-lg font-medium whitespace-nowrap ${
+                adminTab === 'returns' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Pemulangan ({returns.length})
+            </button>
+            <button
+              onClick={() => setAdminTab('assets')}
+              className={`px-6 py-3 rounded-lg font-medium whitespace-nowrap ${
+                adminTab === 'assets' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Aset ({assets.filter(a => a.active).length})
+            </button>
+          </div>
+
+          {/* Applications Tab */}
+          {adminTab === 'applications' && (
+            <div>
+              <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <div className="flex gap-4 mb-4">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cari ID atau nama peminjam..."
+                    className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="ALL">Semua Status</option>
+                    <option value="PENDING">Menunggu</option>
+                    <option value="APPROVED">Diluluskan</option>
+                    <option value="REJECTED">Ditolak</option>
+                    <option value="COMPLETED">Selesai</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {filteredApplications.length === 0 ? (
+                  <div className="bg-white rounded-lg shadow p-12 text-center">
+                    <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Tiada permohonan dijumpai</p>
+                  </div>
+                ) : (
+                  filteredApplications.map(app => (
+                    <div key={app.id} className="bg-white rounded-lg shadow p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-800">{app.id}</h3>
+                          <p className="text-sm text-gray-600">{app.borrowerName} - {app.department}</p>
+                          <p className="text-xs text-gray-500 mt-1">Tarikh mohon: {formatDate(app.submittedDate)}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          app.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                          app.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                          app.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {app.status}
+                        </span>
+                      </div>
+
+                      <div className="grid md:grid-cols-3 gap-4 mb-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">Emel:</span>
+                          <p className="font-medium">{app.email}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Telefon:</span>
+                          <p className="font-medium">{app.phone}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Tarikh:</span>
+                          <p className="font-medium">{formatDate(app.loanDate)} - {formatDate(app.returnDate)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-gray-700 mb-2 text-sm">Aset:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {app.items.map((item, idx) => (
+                            <span key={idx} className="bg-gray-100 px-3 py-1 rounded-full text-xs">
+                              {item.name} × {item.borrowed}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {app.purpose && (
+                        <div className="mb-4">
+                          <h4 className="font-semibold text-gray-700 mb-1 text-sm">Tujuan:</h4>
+                          <p className="text-sm text-gray-600">{app.purpose}</p>
+                        </div>
+                      )}
+
+                      {app.status === 'PENDING' && (
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() => {
+                              setConfirmAction({ type: 'approve', id: app.id });
+                              setShowConfirmModal(true);
+                            }}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                          >
+                            <Check className="w-5 h-5" />
+                            Luluskan
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedApp(app);
+                              setConfirmAction({ type: 'reject', id: app.id });
+                              setShowConfirmModal(true);
+                            }}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2"
+                          >
+                            <X className="w-5 h-5" />
+                            Tolak
+                          </button>
+                        </div>
+                      )}
+
+                      {app.status === 'APPROVED' && app.items.some(item => item.balance > 0) && (
+                        <button
+                          onClick={() => setSelectedApp(app)}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium mt-4"
+                        >
+                          Proses Pemulangan
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Approved Tab */}
+          {adminTab === 'approved' && (
+            <div className="space-y-4">
+              {applications.filter(a => a.status === 'APPROVED').map(app => {
+                const daysLeft = calculateDaysUntilReturn(app.returnDate);
+                return (
+                  <div key={app.id} className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-800">{app.id}</h3>
+                        <p className="text-sm text-gray-600">{app.borrowerName}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          daysLeft < 0 ? 'bg-red-100 text-red-800' :
+                          daysLeft === 0 ? 'bg-orange-100 text-orange-800' :
+                          daysLeft <= 2 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {daysLeft < 0 ? `Lewat ${Math.abs(daysLeft)} hari` :
+                           daysLeft === 0 ? 'Pulang hari ini' :
+                           `${daysLeft} hari lagi`}
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">Pulang: {formatDate(app.returnDate)}</p>
+                      </div>
+                    </div>
+
+                    <div className="border rounded-lg overflow-hidden mb-4">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left py-2 px-4">Aset</th>
+                            <th className="text-center py-2 px-4">Pinjam</th>
+                            <th className="text-center py-2 px-4">Pulang</th>
+                            <th className="text-center py-2 px-4">Baki</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {app.items.map((item, idx) => (
+                            <tr key={idx} className="border-t">
+                              <td className="py-2 px-4">{item.name}</td>
+                              <td className="text-center py-2 px-4">{item.borrowed}</td>
+                              <td className="text-center py-2 px-4">{item.returned}</td>
+                              <td className="text-center py-2 px-4">
+                                <span className={item.balance === 0 ? 'text-green-600 font-semibold' : ''}>
+                                  {item.balance}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {app.items.some(item => item.balance > 0) && (
+                      <button
+                        onClick={() => setSelectedApp(app)}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium"
+                      >
+                        Proses Pemulangan
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Returns Tab */}
+          {adminTab === 'returns' && (
+            <div className="space-y-4">
+              {returns.length === 0 ? (
+                <div className="bg-white rounded-lg shadow p-12 text-center">
+                  <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Tiada rekod pemulangan</p>
+                </div>
+              ) : (
+                returns.map(ret => (
+                  <div key={ret.id} className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-800">{ret.id}</h3>
+                        <p className="text-sm text-gray-600">Permohonan: {ret.applicationId}</p>
+                        <p className="text-xs text-gray-500 mt-1">Tarikh pulang: {formatDate(ret.returnDate)}</p>
+                      </div>
+                      <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
+                        Selesai
+                      </span>
+                    </div>
+
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-gray-700 mb-2 text-sm">Aset dipulangkan:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {ret.items.map((item, idx) => (
+                          <span key={idx} className="bg-gray-100 px-3 py-1 rounded-full text-xs">
+                            {item.name} × {item.quantity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {ret.confirmedBy && (
+                      <p className="text-xs text-gray-500">Disahkan oleh: {ret.confirmedBy}</p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Assets Tab */}
+          {adminTab === 'assets' && (
+            <div>
+              <div className="bg-white rounded-lg shadow p-6 mb-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Tambah Aset Baru</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nama Aset</label>
+                    <input
+                      type="text"
+                      value={newAsset.name}
+                      onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Contoh: Meja pejabat"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Kuantiti</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newAsset.quantity}
+                      onChange={(e) => setNewAsset({ ...newAsset, quantity: parseInt(e.target.value) || 1 })}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                    <select
+                      value={newAsset.category}
+                      onChange={(e) => setNewAsset({ ...newAsset, category: e.target.value })}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="Meja">Meja</option>
+                      <option value="Kerusi">Kerusi</option>
+                      <option value="Karpet & Alas">Karpet & Alas</option>
+                      <option value="Partition">Partition</option>
+                      <option value="Peralatan">Peralatan</option>
+                      <option value="Lain-lain">Lain-lain</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nota (pilihan)</label>
+                    <input
+                      type="text"
+                      value={newAsset.notes}
+                      onChange={(e) => setNewAsset({ ...newAsset, notes: e.target.value })}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Contoh: Warna biru"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <button
+                    onClick={handleAddAsset}
+                    disabled={uploadingImage}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Tambah Aset
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">Senarai Aset</h3>
+                
+                {/* Group assets by category */}
+                {(() => {
+                  const categories = [...new Set(assets.map(a => a.category || 'Lain-lain'))].sort();
+                  
+                  return categories.map(category => {
+                    const categoryAssets = assets.filter(a => (a.category || 'Lain-lain') === category);
+                    
+                    return (
+                      <div key={category} className="mb-8 last:mb-0">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            {category}
+                          </div>
+                          <div className="h-px flex-1 bg-gray-200"></div>
+                          <span className="text-sm text-gray-500">{categoryAssets.length} item</span>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b">
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Gambar</th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-700">Nama</th>
+                                <th className="text-center py-3 px-4 font-semibold text-gray-700">Jumlah</th>
+                                <th className="text-center py-3 px-4 font-semibold text-gray-700">Tersedia</th>
+                                <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+                                <th className="text-center py-3 px-4 font-semibold text-gray-700">Tindakan</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {categoryAssets.map(asset => (
+                                <tr key={asset.id} className="border-b hover:bg-gray-50">
+                                  <td className="py-3 px-4">
+                                    <div className="relative group">
+                                      {asset.image ? (
+                                        <img 
+                                          src={asset.image} 
+                                          alt={asset.name}
+                                          className="w-16 h-16 object-cover rounded-lg border cursor-pointer"
+                                          onClick={() => window.open(asset.image, '_blank')}
+                                          onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect width="64" height="64" fill="%23f3f4f6"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-family="Arial" font-size="12"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-16 h-16 bg-gray-100 rounded-lg border flex items-center justify-center">
+                                          <Package className="w-8 h-8 text-gray-400" />
+                                        </div>
+                                      )}
+                                      <button
+                                        onClick={() => setEditImageAssetId(asset.id)}
+                                        className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+                                      >
+                                        <Upload className="w-5 h-5 text-white" />
+                                      </button>
+                                    </div>
+                                    {editImageAssetId === asset.id && (
+                                      <div className="mt-2">
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => {
+                                            if (e.target.files[0]) {
+                                              handleImageUpload(e.target.files[0], asset.id);
+                                            }
+                                          }}
+                                          className="text-xs"
+                                        />
+                                        <button
+                                          onClick={() => setEditImageAssetId(null)}
+                                          className="text-xs text-gray-600 hover:text-gray-800 ml-2"
+                                        >
+                                          Batal
+                                        </button>
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="text-gray-800 font-medium">{asset.name}</div>
+                                    {asset.notes && (
+                                      <div className="text-xs text-gray-500 mt-1">{asset.notes}</div>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-center font-semibold text-gray-800">{asset.quantity}</td>
+                                  <td className="py-3 px-4 text-center">
+                                    <span className={`font-semibold ${
+                                      asset.available === 0 ? 'text-red-600' : 
+                                      asset.available < asset.quantity * 0.3 ? 'text-orange-600' : 
+                                      'text-green-600'
+                                    }`}>
+                                      {asset.available}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                      asset.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {asset.active ? 'Aktif' : 'Tidak Aktif'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-center">
+                                    <button
+                                      onClick={() => handleUpdateAsset(asset.id, { active: !asset.active })}
+                                      className="text-indigo-600 hover:text-indigo-800 font-medium text-sm"
+                                    >
+                                      {asset.active ? 'Nyahaktif' : 'Aktifkan'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Return Modal */}
+        {selectedApp && !showConfirmModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Proses Pemulangan</h2>
+                <p className="text-gray-600 mb-6">ID: {selectedApp.id}</p>
+
+                <div className="border rounded-lg overflow-hidden mb-6">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-700">Aset</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Pinjam</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Pulang</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Baki</th>
+                        <th className="text-center py-3 px-4 font-semibold text-gray-700">Terima</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedApp.items.filter(item => item.balance > 0).map(item => (
+                        <tr key={item.assetId} className="border-t">
+                          <td className="py-3 px-4">{item.name}</td>
+                          <td className="text-center py-3 px-4">{item.borrowed}</td>
+                          <td className="text-center py-3 px-4">{item.returned}</td>
+                          <td className="text-center py-3 px-4 font-semibold">{item.balance}</td>
+                          <td className="text-center py-3 px-4">
+                            <input
+                              type="number"
+                              min="0"
+                              max={item.balance}
+                              value={returnData[item.assetId] || 0}
+                              onChange={(e) => setReturnData({
+                                ...returnData,
+                                [item.assetId]: Math.min(parseInt(e.target.value) || 0, item.balance)
+                              })}
+                              className="w-20 px-2 py-1 border rounded text-center"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => {
+                      setSelectedApp(null);
+                      setReturnData({});
+                    }}
+                    className="flex-1 px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleReturnItems(selectedApp.id, returnData);
+                      setSelectedApp(null);
+                      setReturnData({});
+                    }}
+                    className="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium"
+                  >
+                    Sahkan Pemulangan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm Modal */}
+        {showConfirmModal && confirmAction && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">
+                {confirmAction.type === 'approve' ? 'Luluskan Permohonan?' : 'Tolak Permohonan?'}
+              </h2>
+              
+              {confirmAction.type === 'reject' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sebab Penolakan
+                  </label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    rows="3"
+                    placeholder="Nyatakan sebab..."
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setConfirmAction(null);
+                    setRejectReason('');
+                  }}
+                  className="flex-1 px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirmAction.type === 'approve') {
+                      handleApproveApplication(confirmAction.id);
+                    } else {
+                      handleRejectApplication(confirmAction.id, rejectReason);
+                    }
+                    setRejectReason('');
+                  }}
+                  className={`flex-1 px-6 py-3 text-white rounded-lg font-medium ${
+                    confirmAction.type === 'approve' 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {confirmAction.type === 'approve' ? 'Ya, Luluskan' : 'Ya, Tolak'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
 
-  // ==================== MAIN RENDER ====================
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {renderNotification()}
-      {renderHeader()}
-      {renderPasswordModal()}
-
-      <main>
-        {currentView === 'home' && renderHome()}
-        {currentView === 'application' && renderApplicationForm()}
-        {currentView === 'status' && renderStatusCheck()}
-        {currentView === 'admin' && renderAdminPanel()}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h3 className="text-lg font-bold mb-4">LibLoanPPD</h3>
-              <p className="text-gray-400 text-sm">
-                Sistem Peminjaman Aset Perpustakaan<br />
-                Politeknik Port Dickson
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold mb-4">Hubungi Kami</h3>
-              <div className="space-y-2 text-sm text-gray-400">
-                <p className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  perpustakaan@polipd.edu.my
-                </p>
-                <p className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  06-647 7000
-                </p>
-                <p className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  Politeknik Port Dickson
-                </p>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold mb-4">Waktu Operasi</h3>
-              <div className="space-y-2 text-sm text-gray-400">
-                <p>Isnin - Khamis: 8:00 AM - 5:00 PM</p>
-                <p>Jumaat: 8:00 AM - 12:00 PM, 2:00 PM - 5:00 PM</p>
-                <p>Hujung Minggu: Tutup</p>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2024 Perpustakaan Politeknik Port Dickson. All rights reserved.</p>
-          </div>
+    <div className="font-sans">
+      {message.text && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 ${
+          message.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {message.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+          {message.text}
         </div>
-      </footer>
+      )}
+
+      {page === 'landing' && <LandingPage />}
+      {page === 'loan' && <LoanApplicationPage />}
+      {page === 'status' && <StatusCheckPage />}
+      {page === 'adminLogin' && <AdminLoginPage />}
+      {page === 'admin' && adminAuth && <AdminPanel />}
     </div>
   );
 };
