@@ -198,72 +198,129 @@ const LibLoanPPD = () => {
 
   // ==================== GOOGLE SHEETS SYNC ====================
 
-  // Sync data from Google Sheets on component mount
+  // ONLY sync FROM Google Sheets on first load (if localStorage is empty)
   useEffect(() => {
-    const syncData = async () => {
+    const initialLoad = async () => {
       if (GoogleSheetsService.isConfigured()) {
-        console.log('🔄 Syncing data from Google Sheets...');
-        setIsSyncing(true);
+        // Check if we have local data
+        const hasLocalData = localStorage.getItem('libloan_applications') || 
+                            localStorage.getItem('libloan_assets');
         
-        try {
-          const result = await GoogleSheetsService.syncData();
+        if (!hasLocalData) {
+          // Only download from cloud if no local data exists
+          console.log('🔄 No local data found, downloading from Google Sheets...');
+          setIsSyncing(true);
           
-          if (result.success) {
-            console.log('✅ Data synced successfully!');
-            console.log('Applications:', result.applications.length);
-            console.log('Assets:', result.assets.length);
+          try {
+            const result = await GoogleSheetsService.syncFromCloud();
             
-            if (result.applications.length > 0) {
-              setApplications(result.applications);
+            if (result.success) {
+              console.log('✅ Data downloaded from Google Sheets!');
+              
+              if (result.applications.length > 0) {
+                setApplications(result.applications);
+                localStorage.setItem('libloan_applications', JSON.stringify(result.applications));
+              }
+              if (result.assets.length > 0) {
+                setAssets(result.assets);
+                localStorage.setItem('libloan_assets', JSON.stringify(result.assets));
+              }
+              
+              setLastSyncTime(new Date());
+              showNotificationMessage('Data loaded from Google Sheets', 'success');
+            } else {
+              console.log('⚠️ Download failed, using default data');
             }
-            if (result.assets.length > 0) {
-              setAssets(result.assets);
-            }
-            
-            setLastSyncTime(new Date());
-            showNotificationMessage('Data synced from Google Sheets', 'success');
-          } else {
-            console.log('⚠️ Sync failed, using localStorage');
-            showNotificationMessage('Using offline data', 'info');
+          } catch (error) {
+            console.error('Error loading from cloud:', error);
+          } finally {
+            setIsSyncing(false);
           }
-        } catch (error) {
-          console.error('Error syncing:', error);
-          showNotificationMessage('Using offline data', 'info');
-        } finally {
-          setIsSyncing(false);
+        } else {
+          console.log('ℹ️ Local data found, using localStorage');
         }
-      } else {
-        console.log('ℹ️ Google Sheets not configured, using localStorage only');
       }
     };
 
-    syncData();
+    initialLoad();
   }, []); // Run once on mount
 
-  // Manual sync function
-  const handleManualSync = async () => {
+  // AUTO-SAVE to Google Sheets after any data change
+  useEffect(() => {
+    const autoSaveToCloud = async () => {
+      if (applications.length > 0 && GoogleSheetsService.isConfigured()) {
+        try {
+          await GoogleSheetsService.syncToCloud(applications, assets);
+          console.log('💾 Auto-saved to Google Sheets');
+        } catch (error) {
+          console.warn('⚠️ Auto-save failed:', error);
+        }
+      }
+    };
+
+    // Debounce the auto-save (wait 2 seconds after last change)
+    const timeoutId = setTimeout(autoSaveToCloud, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [applications, assets]);
+
+  // Manual sync functions - with clear labels
+  const handleUploadToCloud = async () => {
     if (!GoogleSheetsService.isConfigured()) {
       showNotificationMessage('Google Sheets not configured', 'warning');
       return;
     }
 
     setIsSyncing(true);
-    showNotificationMessage('Syncing data...', 'info');
+    showNotificationMessage('Uploading to Google Sheets...', 'info');
     
     try {
-      const result = await GoogleSheetsService.syncData();
+      const result = await GoogleSheetsService.syncToCloud(applications, assets);
+      
+      if (result.success) {
+        setLastSyncTime(new Date());
+        showNotificationMessage('✅ Data uploaded to Google Sheets!', 'success');
+      } else {
+        showNotificationMessage('Upload failed', 'error');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      showNotificationMessage('Upload error: ' + error.message, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDownloadFromCloud = async () => {
+    if (!GoogleSheetsService.isConfigured()) {
+      showNotificationMessage('Google Sheets not configured', 'warning');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      '⚠️ AMARAN: Ini akan GANTIKAN semua data tempatan dengan data dari Google Sheets.\n\n' +
+      'Adakah anda pasti?\n\n' +
+      '(Data tempatan semasa akan hilang!)'
+    );
+
+    if (!confirmed) return;
+
+    setIsSyncing(true);
+    showNotificationMessage('Downloading from Google Sheets...', 'info');
+    
+    try {
+      const result = await GoogleSheetsService.syncFromCloud();
       
       if (result.success) {
         setApplications(result.applications);
         setAssets(result.assets);
         setLastSyncTime(new Date());
-        showNotificationMessage('Data synced successfully!', 'success');
+        showNotificationMessage('✅ Data downloaded from Google Sheets!', 'success');
       } else {
-        showNotificationMessage('Sync failed', 'error');
+        showNotificationMessage('Download failed', 'error');
       }
     } catch (error) {
-      console.error('Sync error:', error);
-      showNotificationMessage('Sync error: ' + error.message, 'error');
+      console.error('Download error:', error);
+      showNotificationMessage('Download error: ' + error.message, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -280,6 +337,28 @@ const LibLoanPPD = () => {
   useEffect(() => {
     localStorage.setItem('libloan_assets', JSON.stringify(assets));
   }, [assets]);
+
+  // AUTO-SYNC to Google Sheets whenever data changes (with debounce)
+  useEffect(() => {
+    const autoSyncToCloud = async () => {
+      if (GoogleSheetsService.isConfigured() && applications.length > 0) {
+        try {
+          console.log('🔄 Auto-syncing to Google Sheets...');
+          await GoogleSheetsService.syncToCloud(applications, assets);
+          console.log('✅ Auto-sync completed');
+          setLastSyncTime(new Date());
+        } catch (error) {
+          console.warn('⚠️ Auto-sync failed (data safe in localStorage):', error);
+        }
+      }
+    };
+
+    // Debounce: Wait 3 seconds after last change before syncing
+    // This prevents too many requests when user makes multiple changes quickly
+    const timeoutId = setTimeout(autoSyncToCloud, 3000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [applications, assets]);
 
   // Check for reminders daily
   useEffect(() => {
@@ -450,16 +529,6 @@ const LibLoanPPD = () => {
     setAssets(updatedAssets);
     setApplications([...applications, newApplication]);
 
-    // Try to save to Google Sheets
-    if (GoogleSheetsService.isConfigured()) {
-      try {
-        await GoogleSheetsService.saveApplication(newApplication);
-        await GoogleSheetsService.saveAssets(updatedAssets);
-      } catch (error) {
-        console.error('Failed to save to Google Sheets:', error);
-      }
-    }
-
     showNotificationMessage('Permohonan berjaya dihantar!', 'success');
     
     // Reset form
@@ -607,15 +676,6 @@ const LibLoanPPD = () => {
       await EmailService.sendApprovalNotification(approvedApp, approvalForm.verifierName);
     }
 
-    // Save to Google Sheets
-    if (GoogleSheetsService.isConfigured()) {
-      try {
-        await GoogleSheetsService.updateApplication(approvedApp);
-      } catch (error) {
-        console.error('Failed to update Google Sheets:', error);
-      }
-    }
-
     showNotificationMessage('Permohonan telah diluluskan', 'success');
     setSelectedApplication(null);
     setApprovalForm({ verifierName: '', editedItems: [] });
@@ -649,12 +709,6 @@ const LibLoanPPD = () => {
     setAssets(updatedAssets);
     setApplications(updatedApplications);
 
-    // Save to Google Sheets
-    if (GoogleSheetsService.isConfigured()) {
-      const rejectedApp = updatedApplications.find(app => app.id === application.id);
-      GoogleSheetsService.updateApplication(rejectedApp).catch(console.error);
-    }
-
     showNotificationMessage('Permohonan telah ditolak', 'success');
     setSelectedApplication(null);
   };
@@ -679,12 +733,6 @@ const LibLoanPPD = () => {
     });
 
     setApplications(updatedApplications);
-
-    // Save to Google Sheets
-    if (GoogleSheetsService.isConfigured()) {
-      const updatedApp = updatedApplications.find(app => app.id === applicationId);
-      GoogleSheetsService.updateApplication(updatedApp).catch(console.error);
-    }
 
     showNotificationMessage('Rekod penerima aset berjaya disimpan', 'success');
     setRecipientForm({ recipientName: '', recipientId: '' });
@@ -737,13 +785,6 @@ const LibLoanPPD = () => {
 
     setAssets(updatedAssets);
     setApplications(updatedApplications);
-
-    // Save to Google Sheets
-    if (GoogleSheetsService.isConfigured()) {
-      const updatedApp = updatedApplications.find(app => app.id === applicationId);
-      GoogleSheetsService.updateApplication(updatedApp).catch(console.error);
-      GoogleSheetsService.saveAssets(updatedAssets).catch(console.error);
-    }
 
     showNotificationMessage('Pemulangan berjaya direkod', 'success');
   };
@@ -1135,14 +1176,6 @@ const LibLoanPPD = () => {
             ) : (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={handleManualSync}
-                  disabled={isSyncing}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  {isSyncing ? 'Syncing...' : 'Sync'}
-                </button>
-                <button
                   onClick={() => setCurrentView('admin')}
                   className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
                 >
@@ -1295,8 +1328,16 @@ const LibLoanPPD = () => {
             © 2025 Perpustakaan Politeknik Port Dickson. Hak Cipta Terpelihara.
           </p>
           {lastSyncTime && (
-            <p className="text-sm text-gray-500 mt-2">
-              Last synced: {lastSyncTime.toLocaleString('ms-MY')}
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <p className="text-xs text-gray-500">
+                Auto-synced: {lastSyncTime.toLocaleString('ms-MY')}
+              </p>
+            </div>
+          )}
+          {!GoogleSheetsService.isConfigured() && (
+            <p className="text-xs text-yellow-600 mt-2">
+              ⚠️ Google Sheets sync not configured - data saved locally only
             </p>
           )}
         </div>
@@ -1699,14 +1740,6 @@ const LibLoanPPD = () => {
                 <p className="text-gray-600 mt-2">Pengurusan permohonan dan aset</p>
               </div>
               <div className="flex gap-3">
-                <button
-                  onClick={handleManualSync}
-                  disabled={isSyncing}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  {isSyncing ? 'Syncing...' : 'Sync'}
-                </button>
                 <button
                   onClick={() => setCurrentView('home')}
                   className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition"
@@ -2271,6 +2304,14 @@ const LibLoanPPD = () => {
     <div className="min-h-screen">
       {renderNotification()}
       {renderAssetModal()}
+      
+      {/* Floating Sync Status Indicator */}
+      {GoogleSheetsService.isConfigured() && lastSyncTime && (
+        <div className="fixed bottom-4 right-4 bg-white shadow-lg rounded-full px-4 py-2 flex items-center gap-2 border border-gray-200 z-40">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-xs text-gray-600">Synced</span>
+        </div>
+      )}
       
       {currentView === 'home' && renderHomeView()}
       {currentView === 'application' && renderApplicationView()}
